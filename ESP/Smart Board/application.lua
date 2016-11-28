@@ -4,34 +4,57 @@ local module = {}
 
 m = nil
 local sn = nil
-local initStatus = true
+local flagSerialSet = false
 local toArduino = ""
+local buffRoomStatus = ""
 local fromArd = ""
 local owner = ""
 local tempMsg = ""
-local tempPinNo = 0
-local tempPinState = 0
-local tempUpdateInterval = 0
-local setPinStatus = false
+local setLampStatus = false
+local setFanStatus = false
+local setACStatus = false
+local setLockStatus = false
 local setIntervalStatus = false
-local buffBoardStatus = ""
+local setLockScheduleStatus = false
+local clearLockScheduleStatus = false
+local tempLampNo = 0
+local tempLampState = 0
+local tempFanState = 0
+local tempACState = 0
+local tempLockState = 0
+local tempUpdateInterval = 0
+local initStatus = false
+local tempLockSchedule = ""
+local tempUnlockSchedule = ""
+local tempACFan = 0
+local tempWantedTemp = 0
 local flagDC = false
-local flagSerialSet = false
 local publishAllowed = true
 
 local function initAll()
-	sn = nil
-	initStatus = true
 	toArduino = ""
+	buffRoomStatus = ""
 	fromArd = ""
 	owner = ""
 	tempMsg = ""
-	tempPinNo = 0
-	tempPinState = 0
-	tempUpdateInterval = 0
-	setPinStatus = false
+	setLampStatus = false
+	setFanStatus = false
+	setACStatus = false
+	setLockStatus = false
 	setIntervalStatus = false
-	buffBoardStatus = ""
+	setLockScheduleStatus = false
+	clearLockScheduleStatus = false
+	tempLampNo = 0
+	tempLampState = 0
+	tempFanState = 0
+	tempACState = 0
+	tempLockState = 0
+	tempUpdateInterval = 0
+	initStatus = false
+	tempLockSchedule = ""
+	tempUnlockSchedule = ""
+	tempACFan = 0
+	tempWantedTemp = 0
 	flagDC = false
     publishAllowed = true
 end
@@ -40,6 +63,8 @@ local function publishData(topic,payload)
     flagDC = true
     m:publish(config.ENDPOINT .. topic,payload,1,0,function(conn)
         flagDC = false
+        --c2 = "{\"msg\":\"puback\"}"
+        --print(c2)
     end)
 end
 
@@ -52,12 +77,24 @@ local function convertMACToSN(mac)
 	return (mac:gsub('%:', '')):sub(1,12)
 end
 
-local function initBoardState()
-	tempPinNo = 0
-	tempPinState = 0
-	tempUpdateInterval = 0
-	setPinStatus = false
+local function initRoomState()
+	setLampStatus = false
+	setFanStatus = false
+	setACStatus = false
+	setLockStatus = false
 	setIntervalStatus = false
+	setLockScheduleStatus = false
+	clearLockScheduleStatus = false
+	tempLampNo = 0
+	tempLampState = 0
+	tempFanState = 0
+	tempACState = 0
+	tempLockState = 0
+	tempUpdateInterval = 0
+	tempLockSchedule = ""
+	tempUnlockSchedule = ""
+	tempACFan = 0
+	tempWantedTemp = 0
 end
 
 local function mqtt_start()
@@ -72,39 +109,82 @@ local function mqtt_start()
 				if (jobj.msg == "owner" and jobj.owner ~= "NOTFOUND") then
 					owner = jobj.owner
 					subscribeTopic("/"..owner)
-					snd = "{\"msg\":\"getBoardStatus\",\"owner\":\""..owner.."\",\"applianceserial\":\""..sn.."\"}"
-					publishData("/"..owner,snd)
+					snd = "{\"msg\":\"getRoomStatus\",\"owner\":\""..owner.."\",\"applianceserial\":\""..sn.."\"}"
+					publishData("/"..owner,snd)			
 				end
 			elseif (topic == config.ENDPOINT.."/"..owner and jobj.applianceserial == sn) then
-				if (jobj.msg == "setPinOutput" and not setPinStatus) then
-					initBoardState()
+				if (jobj.msg == "setLamp" and not setLampStatus) then
+					initRoomState()
 					tempMsg = jobj.msg
-					tempPinNo = jobj.opn
-					tempPinState = jobj.ops
-					setPinStatus = true
-				elseif(jobj.msg == "setBoardUpdateInterval" and not setIntervalStatus) then
-					initBoardState()
+					tempLampNo = jobj.lampno
+					tempLampState = jobj.lampstate
+					setLampStatus = true
+				elseif(jobj.msg == "setFan" and not setFanStatus) then
+					initRoomState()
+					tempMsg = jobj.msg
+					tempFanState = jobj.fanstate
+					setFanStatus = true
+				elseif(jobj.msg == "setAC" and not setACStatus) then
+					initRoomState()
+					tempMsg = jobj.msg
+					tempACState = jobj.acstate
+					tempACFan = jobj.acfan
+					tempWantedTemp = jobj.wantedtemp
+					setACStatus = true
+				elseif(jobj.msg == "setLock" and not setLockStatus) then
+					initRoomState()
+					tempMsg = jobj.msg
+					tempLockState = jobj.lockstate
+					setLockStatus = true	
+				elseif(jobj.msg == "setUpdateInterval" and not setIntervalStatus) then
+					initRoomState()
 					tempMsg = jobj.msg
 					tempUpdateInterval = jobj.updateinterval
 					setIntervalStatus = true	
+				elseif(jobj.msg == "setLockSchedule" and not setLockScheduleStatus) then
+					initRoomState()
+					tempMsg = jobj.msg
+					tempLockSchedule = jobj.lockschedule
+					tempUnlockSchedule = jobj.unlockschedule
+					setLockScheduleStatus = true
+				elseif(jobj.msg == "clearLockSchedule" and not clearLockScheduleStatus) then
+					initRoomState()
+					tempMsg = jobj.msg
+					clearLockScheduleStatus = true
 				elseif (jobj.msg == "cmdid" and jobj.cmdid ~= -1) then
-					if(tempMsg == "setPinOutput" and setPinStatus)then
-						toArduino = "{\"msg\":\""..tempMsg.."\",\"cmdid\":"..jobj.cmdid..",\"opn\":" .. tempPinNo .. ",\"ops\":".. tempPinState .."}"
-						initBoardState()
-					elseif(tempMsg == "setBoardUpdateInterval" and setIntervalStatus)then
+					if(tempMsg == "setLamp" and setLampStatus)then
+						toArduino = "{\"msg\":\""..tempMsg.."\",\"cmdid\":"..jobj.cmdid..",\"lampno\":" .. tempLampNo .. ",\"lampstate\":".. tempLampState .."}"
+						initRoomState()
+					elseif(tempMsg == "setFan" and setFanStatus)then
+						toArduino = "{\"msg\":\""..tempMsg.."\",\"cmdid\":"..jobj.cmdid..",\"fanstate\":"..tempFanState.."}"
+						initRoomState()
+					elseif(tempMsg == "setAC" and setACStatus)then
+						toArduino = "{\"msg\":\""..tempMsg.."\",\"cmdid\":"..jobj.cmdid..",\"acstate\":"..tempACState..",\"acfan\":"..tempACFan..",\"wantedtemp\":"..tempWantedTemp.."}"
+						initRoomState()
+					elseif(tempMsg == "setLock" and setLockStatus)then
+						toArduino = "{\"msg\":\""..tempMsg.."\",\"cmdid\":"..jobj.cmdid..",\"lockstate\":"..tempLockState.."}"
+						initRoomState()
+					elseif(tempMsg == "setUpdateInterval" and setIntervalStatus)then
 						toArduino = "{\"msg\":\""..tempMsg.."\",\"cmdid\":"..jobj.cmdid..",\"updateinterval\":"..tempUpdateInterval.."}"
-						initBoardState()
+						initRoomState()
+					elseif(tempMsg == "setLockSchedule" and setLockScheduleStatus)then
+						toArduino = "{\"msg\":\""..tempMsg.."\",\"cmdid\":"..jobj.cmdid..",\"ls\":\""..tempLockSchedule.."\",\"us\":\""..tempUnlockSchedule.."\"}"
+						initRoomState()
+					elseif(tempMsg == "clearLockSchedule" and clearLockScheduleStatus)then
+						toArduino = "{\"msg\":\""..tempMsg.."\",\"cmdid\":"..jobj.cmdid.."}"
+						initRoomState()
 					end
 					print(toArduino)
 					tempMsg = ""
-				elseif(jobj.msg=="boardStatus" and initStatus)then
-					buffBoardStatus = cjson.encode(jobj)
+				elseif(jobj.msg=="roomStatus" and not initStatus)then
+					--toArduino = "{\"msg\":\"setUpdateInterval\",\"cmdid\":"..jobj.cmdid..",\"updateinterval\":"..jobj.upint.."}"
+					buffRoomStatus = cjson.encode(jobj)
 					initStatus = true
 					if(flagSerialSet)then
-						print(buffBoardStatus)
-						buffBoardStatus = ""
+						print(buffRoomStatus)
+						buffRoomStatus = ""
 					end
-					initBoardState()
+					initRoomState()
 				end
 			end
 		end
@@ -117,7 +197,9 @@ local function mqtt_start()
     end) 
 	
 	m:on("connect", function(client)
-        subscribeTopic("/"..sn)
+        --c = "{\"msg\":\"connected\"}"
+		--print(c)
+		subscribeTopic("/"..sn)
 		snd = "{\"msg\":\"getOwner\",\"applianceserial\":\""..sn.."\"}"
 		publishData("/"..sn,snd)
 		initStatus = false
@@ -125,6 +207,14 @@ local function mqtt_start()
         publishAllowed = true
 	end)
 	
+	--m:on("offline",function(client)
+        --flagDC = true
+        --md = "{\"msg\":\"mqttdisconnected\"}"
+		--print(md)
+        --m:close()
+        --m = nil
+        --mqtt_start()
+	--end)
 end
 
 local function checkFlagDC()
@@ -141,7 +231,6 @@ end
 
 function module.start()
 	sn = convertMACToSN(wifi.sta.getmac())
-	
 	uart.setup(0, 9600, 8, uart.PARITY_NONE, uart.STOPBITS_1, 1)
 	uart.on("data","}",function(data)
 		fromArd = cjson.decode(data)
@@ -150,10 +239,12 @@ function module.start()
 			giveSN = "{\"msg\":\"setApplianceSerial\",\"applianceserial\":\""..sn.."\"}"
 			print(giveSN)
 		elseif(fromArd.msg=="serialSet")then
+			--snd = "{\"msg\":\"getRoomStatus\",\"owner\":\""..owner.."\",\"applianceserial\":\""..sn.."\"}"
+			--publishData("/"..owner,snd)
 			flagSerialSet = true
-			if(buffBoardStatus ~= "")then
-				print(buffBoardStatus)
-				buffBoardStatus = ""
+			if(buffRoomStatus ~= "")then
+				print(buffRoomStatus)
+				buffRoomStatus = ""
 			end			
 		else
 			if publishAllowed then
@@ -177,6 +268,8 @@ function module.start()
 		flagDC = true
         publishAllowed = false
         if(m ~= nil)then
+            --d = "{\"msg\":\"disconnected\"}"
+            --print(d)
 		    m:close()
             m = nil
         end
