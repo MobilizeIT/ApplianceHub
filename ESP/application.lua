@@ -45,7 +45,6 @@ local buffInitParams		= ""
 -- Initialize all your variables here
 local function initAll()
 	-- Compulsory Variables
-	sn					= nil
 	toArduino			= ""
 	fromArd				= ""
 	flagDC				= false
