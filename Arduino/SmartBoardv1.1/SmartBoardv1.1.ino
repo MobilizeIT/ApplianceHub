@@ -5,8 +5,8 @@
 #include<DS3232RTC.h>
 
 #define MAX_BUFF 255
-const int IN_BUF_SIZE =  JSON_OBJECT_SIZE(5);
-const int OUT_BUF_SIZE =  JSON_OBJECT_SIZE(10)+JSON_ARRAY_SIZE(16);
+const int IN_BUF_SIZE =  JSON_OBJECT_SIZE(10)+JSON_ARRAY_SIZE(18);
+const int OUT_BUF_SIZE =  JSON_OBJECT_SIZE(10)+JSON_ARRAY_SIZE(18);
 
 String inputString = "";
 String ctimestamp,rtimestamp;
@@ -208,6 +208,7 @@ void loop() {
         doutstate[n] = injobj["doutputs"][n];
         digitalWrite(n+8,doutstate[n]);
       }
+      updateInterval=injobj["upint"];
       updateBoardStatus();
       setNextUpdateTime();
     }
